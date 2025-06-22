@@ -1,4 +1,4 @@
-name: IP Geolocation Lookup
+name: Proxy IP Geolocation Lookup
 
 on:
   workflow_dispatch:
@@ -13,11 +13,29 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Run IP lookup and save to file
+      - name: Run proxy IP lookup and save to file
         run: |
-          FILE=locations.txt
+          FILE=proxies_location.txt
           echo "" > $FILE
-          for host in luminous.level3tjg.me firefox.api.cdn-perfprod.com proxy.level3tjg.me; do
+
+          hosts=(
+            "lb-eu.cdn-perfprod.com"
+            "lb-eu2.cdn-perfprod.com"
+            "lb-eu3.cdn-perfprod.com"
+            "lb-eu4.cdn-perfprod.com"
+            "lb-eu5.cdn-perfprod.com"
+            "lb-na.cdn-perfprod.com"
+            "lb-as.cdn-perfprod.com"
+            "lb-sa.cdn-perfprod.com"
+            "eu.luminous.dev"
+            "eu2.luminous.dev"
+            "as.luminous.dev"
+            "firefox.api.cdn-perfprod.com"
+            "proxy.level3tjg.me"
+            "luminous.level3tjg.me"
+          )
+
+          for host in "${hosts[@]}"; do
             ip=$(nslookup $host | grep 'Address:' | tail -n1 | awk '{print $2}')
             echo "Host: $host" >> $FILE
             echo "IP: $ip" >> $FILE
@@ -29,7 +47,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add locations.txt
-          git commit -m "Update IP geolocation info"
+          git add proxies_location.txt
+          git commit -m "Update proxy IP geolocation info"
           git push
         continue-on-error: true
