@@ -40,6 +40,7 @@ jobs:
 
       - name: Upload patched IPA to catbox.moe
         id: upload_catbox
+        working-directory: ipa
         run: |
           response=$(curl -F "reqtype=fileupload" -F "fileToUpload=@patched.ipa" https://catbox.moe/user/api.php)
           echo "filename=$(basename "$response")" >> $GITHUB_OUTPUT
