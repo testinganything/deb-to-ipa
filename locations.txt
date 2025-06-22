@@ -1,0 +1,25 @@
+
+Host: luminous.level3tjg.me
+IP: 147.185.239.71
+"147.185.239.71"
+"New York City"
+"New York"
+"US"
+"AS36007 Kamatera, Inc."
+-------------------------
+Host: firefox.api.cdn-perfprod.com
+IP: 176.124.199.66
+"176.124.199.66"
+"Frankfurt am Main"
+"Hesse"
+"DE"
+"AS210644 AEZA INTERNATIONAL LTD"
+-------------------------
+Host: proxy.level3tjg.me
+IP: 147.185.239.71
+"147.185.239.71"
+"New York City"
+"New York"
+"US"
+"AS36007 Kamatera, Inc."
+-------------------------
