@@ -1,0 +1,35 @@
+name: IP Geolocation Lookup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  lookup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run IP lookup and save to file
+        run: |
+          FILE=locations.txt
+          echo "" > $FILE
+          for host in luminous.level3tjg.me firefox.api.cdn-perfprod.com proxy.level3tjg.me; do
+            ip=$(nslookup $host | grep 'Address:' | tail -n1 | awk '{print $2}')
+            echo "Host: $host" >> $FILE
+            echo "IP: $ip" >> $FILE
+            curl -s ipinfo.io/$ip | jq '.ip, .city, .region, .country, .org' >> $FILE
+            echo "-------------------------" >> $FILE
+          done
+
+      - name: Commit & push results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add locations.txt
+          git commit -m "Update IP geolocation info"
+          git push
+        continue-on-error: true
