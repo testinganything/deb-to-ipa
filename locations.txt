@@ -1,25 +1,53 @@
+name: Proxy IP Geolocation Lookup
 
-Host: luminous.level3tjg.me
-IP: 147.185.239.71
-"147.185.239.71"
-"New York City"
-"New York"
-"US"
-"AS36007 Kamatera, Inc."
--------------------------
-Host: firefox.api.cdn-perfprod.com
-IP: 176.124.199.66
-"176.124.199.66"
-"Frankfurt am Main"
-"Hesse"
-"DE"
-"AS210644 AEZA INTERNATIONAL LTD"
--------------------------
-Host: proxy.level3tjg.me
-IP: 147.185.239.71
-"147.185.239.71"
-"New York City"
-"New York"
-"US"
-"AS36007 Kamatera, Inc."
--------------------------
+on:
+  workflow_dispatch:
+
+jobs:
+  lookup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run proxy IP lookup and save to file
+        run: |
+          FILE=proxies_location.txt
+          echo "" > $FILE
+
+          hosts=(
+            "lb-eu.cdn-perfprod.com"
+            "lb-eu2.cdn-perfprod.com"
+            "lb-eu3.cdn-perfprod.com"
+            "lb-eu4.cdn-perfprod.com"
+            "lb-eu5.cdn-perfprod.com"
+            "lb-na.cdn-perfprod.com"
+            "lb-as.cdn-perfprod.com"
+            "lb-sa.cdn-perfprod.com"
+            "eu.luminous.dev"
+            "eu2.luminous.dev"
+            "as.luminous.dev"
+            "firefox.api.cdn-perfprod.com"
+            "proxy.level3tjg.me"
+            "luminous.level3tjg.me"
+          )
+
+          for host in "${hosts[@]}"; do
+            ip=$(nslookup $host | grep 'Address:' | tail -n1 | awk '{print $2}')
+            echo "Host: $host" >> $FILE
+            echo "IP: $ip" >> $FILE
+            curl -s ipinfo.io/$ip | jq '.ip, .city, .region, .country, .org' >> $FILE
+            echo "-------------------------" >> $FILE
+          done
+
+      - name: Commit & push results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add proxies_location.txt
+          git commit -m "Update proxy IP geolocation info"
+          git push
+        continue-on-error: true
