@@ -1,4 +1,4 @@
-name: Deb to IPA and Release
+name: Deb to IPA and Release (with optional IPA)
 
 on:
   workflow_dispatch:
@@ -7,40 +7,55 @@ on:
         description: "Direct URL to .deb file"
         required: true
       ipa:
-        description: "Direct URL to decrypted .ipa file"
-        required: true
+        description: "Direct URL to decrypted .ipa file (optional)"
+        required: false
+        default: ""
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Download .deb and .ipa
-        run: |
-          curl -L -o app.deb "${{ github.event.inputs.deb }}"
-          curl -L -o app.ipa "${{ github.event.inputs.ipa }}"
+      - name: Download .deb file
+        run: curl -L -o app.deb "${{ github.event.inputs.deb }}"
 
       - name: Extract tweak (.deb)
         run: dpkg-deb -X app.deb deb
 
-      - name: Extract app (.ipa)
-        run: unzip -q app.ipa -d ipa
+      # If IPA input provided, download it
+      - name: Download .ipa file (if provided)
+        if: ${{ github.event.inputs.ipa != '' }}
+        run: curl -L -o app.ipa "${{ github.event.inputs.ipa }}"
 
-      - name: Inject tweak into IPA
+      # If IPA input provided, unzip and inject dylib & plist
+      - name: Extract app (.ipa) and inject tweak (if IPA provided)
+        if: ${{ github.event.inputs.ipa != '' }}
         run: |
+          unzip -q app.ipa -d ipa
           APP_DIR=$(find ipa/Payload -name '*.app' -type d | head -n1)
           cp deb/var/jb/Library/MobileSubstrate/DynamicLibraries/*.dylib "$APP_DIR/"
           cp deb/var/jb/Library/MobileSubstrate/DynamicLibraries/*.plist "$APP_DIR/"
 
-      - name: Repack patched IPA
+      # If IPA input provided, repackage patched IPA
+      - name: Repack patched IPA (if IPA provided)
+        if: ${{ github.event.inputs.ipa != '' }}
         run: |
+          cd ipa
+          zip -qr patched.ipa Payload
+          cd ..
+
+      # If IPA NOT provided, build IPA from extracted .deb app folder (old method)
+      - name: Build IPA from .deb (if no IPA provided)
+        if: ${{ github.event.inputs.ipa == '' }}
+        run: |
+          mkdir -p ipa/Payload
+          cp -R deb/Applications/* ipa/Payload/
           cd ipa
           zip -qr patched.ipa Payload
           cd ..
 
       - name: Generate timestamped tag
         id: tag
-        run: |
-          echo "TAG=patched-ipa-$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+        run: echo "TAG=patched-ipa-$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
 
       - name: Create Release and Upload IPA
         uses: softprops/action-gh-release@v1
@@ -48,7 +63,7 @@ jobs:
           tag_name: ${{ env.TAG }}
           name: ipa
           body: |
-            This release contains the patched IPA with injected tweak.
+            This release contains the patched IPA.
           files: ipa/patched.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
