@@ -39,7 +39,8 @@ jobs:
 
       - name: Generate timestamped tag
         id: tag
-        run: echo "TAG=patched-ipa-$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+        run: |
+          echo "TAG=patched-ipa-$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
 
       - name: Create Release and Upload IPA
         uses: softprops/action-gh-release@v1
@@ -48,6 +49,6 @@ jobs:
           name: ipa
           body: |
             This release contains the patched IPA with injected tweak.
-          assets: ipa/patched.ipa
+          files: ipa/patched.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
