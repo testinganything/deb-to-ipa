@@ -1,4 +1,4 @@
-name: Deb to IPA (No Signing)
+name: Deb to IPA and Upload to Catbox
 
 on:
   workflow_dispatch:
@@ -9,6 +9,10 @@ on:
       ipa:
         description: "Direct URL to decrypted .ipa file"
         required: true
+      github_token:
+        description: "GitHub Token for release (default: ${{ secrets.GITHUB_TOKEN }})"
+        required: false
+        default: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build:
@@ -38,8 +42,23 @@ jobs:
           cd ${{ github.workspace }}/ipa
           zip -qr ${{ github.workspace }}/patched.ipa Payload
 
-      - name: Upload patched IPA
-        uses: actions/upload-artifact@v4
+      - name: Upload patched IPA to catbox.moe
+        id: upload_catbox
+        run: |
+          response=$(curl -F "reqtype=fileupload" -F "fileToUpload=@${{ github.workspace }}/patched.ipa" https://catbox.moe/user/api.php)
+          echo "Uploaded file URL: $response"
+          # Extract the unique identifier (filename or path after last /)
+          filename=$(basename "$response")
+          echo "filename=$filename" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub release with catbox identifier in body
+        uses: softprops/action-gh-release@v1
         with:
-          name: patched-ipa
-          path: ${{ github.workspace }}/patched.ipa
+          tag_name: "patched-ipa-$(date +'%Y%m%d%H%M%S')"
+          name: "Patched IPA uploaded to catbox"
+          body: |
+            Uploaded patched IPA to catbox.moe with identifier:
+
+            ${{ steps.upload_catbox.outputs.filename }}
+        env:
+          GITHUB_TOKEN: ${{ github.event.inputs.github_token }}
