@@ -17,40 +17,42 @@ jobs:
     steps:
       - name: Download .deb and .ipa files
         run: |
-          curl -L -o ${{ github.workspace }}/app.deb "${{ github.event.inputs.deb }}"
-          curl -L -o ${{ github.workspace }}/app.ipa "${{ github.event.inputs.ipa }}"
+          curl -L -o app.deb "${{ github.event.inputs.deb }}"
+          curl -L -o app.ipa "${{ github.event.inputs.ipa }}"
 
       - name: Extract .deb contents
-        run: dpkg-deb -X ${{ github.workspace }}/app.deb ${{ github.workspace }}/deb
+        run: dpkg-deb -X app.deb deb
 
       - name: Extract .ipa contents
-        run: unzip -q ${{ github.workspace }}/app.ipa -d ${{ github.workspace }}/ipa
+        run: unzip -q app.ipa -d ipa
 
       - name: Copy tweak files into IPA app bundle
         run: |
-          APP_DIR=$(find ${{ github.workspace }}/ipa/Payload -name '*.app' -type d | head -n1)
-          echo "App directory: $APP_DIR"
-          cp ${{ github.workspace }}/deb/var/jb/Library/MobileSubstrate/DynamicLibraries/*.dylib "$APP_DIR/"
-          cp ${{ github.workspace }}/deb/var/jb/Library/MobileSubstrate/DynamicLibraries/*.plist "$APP_DIR/"
+          APP_DIR=$(find ipa/Payload -name '*.app' -type d | head -n1)
+          cp deb/var/jb/Library/MobileSubstrate/DynamicLibraries/*.dylib "$APP_DIR/"
+          cp deb/var/jb/Library/MobileSubstrate/DynamicLibraries/*.plist "$APP_DIR/"
 
       - name: Repack IPA
         run: |
-          cd ${{ github.workspace }}/ipa
-          zip -qr ${{ github.workspace }}/patched.ipa Payload
+          cd ipa
+          zip -qr patched.ipa Payload
+          cd ..
 
       - name: Upload patched IPA to catbox.moe
         id: upload_catbox
         run: |
-          response=$(curl -F "reqtype=fileupload" -F "fileToUpload=@${{ github.workspace }}/patched.ipa" https://catbox.moe/user/api.php)
-          echo "Uploaded file URL: $response"
-          filename=$(basename "$response")
-          echo "filename=$filename" >> $GITHUB_OUTPUT
+          response=$(curl -F "reqtype=fileupload" -F "fileToUpload=@patched.ipa" https://catbox.moe/user/api.php)
+          echo "filename=$(basename "$response")" >> $GITHUB_OUTPUT
+
+      - name: Generate timestamp tag
+        id: ts
+        run: echo "TAG=patched-ipa-$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
 
       - name: Create GitHub release with catbox identifier in body
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: "patched-ipa-$(date +'%Y%m%d%H%M%S')"
-          name: "Patched IPA uploaded to catbox"
+          tag_name: ${{ env.TAG }}
+          name: Patched IPA uploaded to catbox
           body: |
             Uploaded patched IPA to catbox.moe with identifier:
 
