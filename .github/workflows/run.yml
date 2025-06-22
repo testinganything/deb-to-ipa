@@ -1,30 +1,45 @@
-name: Run
+name: Deb to IPA (No Signing)
 
 on:
   workflow_dispatch:
     inputs:
       deb:
-        description: "Direct URL to deb file"
+        description: "Direct URL to .deb file"
+        required: true
+      ipa:
+        description: "Direct URL to decrypted .ipa file"
         required: true
 
 jobs:
-  run:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Convert deb to IPA
+      - name: Download .deb and .ipa files
         run: |
           curl -L -o ${{ github.workspace }}/app.deb "${{ github.event.inputs.deb }}"
-          dpkg-deb -X ${{ github.workspace }}/app.deb ${{ github.workspace }}/app
+          curl -L -o ${{ github.workspace }}/app.ipa "${{ github.event.inputs.ipa }}"
 
-          mkdir -p ${{ github.workspace }}/ipa/Payload
-          cp -R ${{ github.workspace }}/app/Applications/* ${{ github.workspace }}/ipa/Payload
-          
+      - name: Extract .deb contents
+        run: dpkg-deb -X ${{ github.workspace }}/app.deb ${{ github.workspace }}/deb
+
+      - name: Extract .ipa contents
+        run: unzip -q ${{ github.workspace }}/app.ipa -d ${{ github.workspace }}/ipa
+
+      - name: Copy tweak files into IPA app bundle
+        run: |
+          APP_DIR=$(find ${{ github.workspace }}/ipa/Payload -name '*.app' -type d | head -n1)
+          echo "App directory: $APP_DIR"
+          cp ${{ github.workspace }}/deb/var/jb/Library/MobileSubstrate/DynamicLibraries/*.dylib "$APP_DIR/"
+          cp ${{ github.workspace }}/deb/var/jb/Library/MobileSubstrate/DynamicLibraries/*.plist "$APP_DIR/"
+
+      - name: Repack IPA
+        run: |
           cd ${{ github.workspace }}/ipa
-          zip -r ${{ github.workspace }}/App.ipa .
+          zip -qr ${{ github.workspace }}/patched.ipa Payload
 
-      - name: Upload IPA
+      - name: Upload patched IPA
         uses: actions/upload-artifact@v4
         with:
-          name: App
-          path: ${{ github.workspace }}/App.ipa
+          name: patched-ipa
+          path: ${{ github.workspace }}/patched.ipa
