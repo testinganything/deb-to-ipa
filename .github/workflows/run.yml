@@ -1,4 +1,4 @@
-name: Deb to IPA and Upload to Catbox
+name: Deb to IPA and Release
 
 on:
   workflow_dispatch:
@@ -11,52 +11,43 @@ on:
         required: true
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Download .deb and .ipa files
+    steps
+      - name: Download .deb and .ipa
         run: |
           curl -L -o app.deb "${{ github.event.inputs.deb }}"
           curl -L -o app.ipa "${{ github.event.inputs.ipa }}"
 
-      - name: Extract .deb contents
+      - name: Extract tweak (.deb)
         run: dpkg-deb -X app.deb deb
 
-      - name: Extract .ipa contents
+      - name: Extract app (.ipa)
         run: unzip -q app.ipa -d ipa
 
-      - name: Copy tweak files into IPA app bundle
+      - name: Inject tweak into IPA
         run: |
           APP_DIR=$(find ipa/Payload -name '*.app' -type d | head -n1)
           cp deb/var/jb/Library/MobileSubstrate/DynamicLibraries/*.dylib "$APP_DIR/"
           cp deb/var/jb/Library/MobileSubstrate/DynamicLibraries/*.plist "$APP_DIR/"
 
-      - name: Repack IPA
+      - name: Repack patched IPA
         run: |
           cd ipa
           zip -qr patched.ipa Payload
           cd ..
 
-      - name: Upload patched IPA to catbox.moe
-        id: upload_catbox
-        working-directory: ipa
-        run: |
-          response=$(curl -F "reqtype=fileupload" -F "fileToUpload=@patched.ipa" https://catbox.moe/user/api.php)
-          echo "filename=$(basename "$response")" >> $GITHUB_OUTPUT
-
-      - name: Generate timestamp tag
-        id: ts
+      - name: Generate timestamped tag
+        id: tag
         run: echo "TAG=patched-ipa-$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
 
-      - name: Create GitHub release with catbox identifier in body
+      - name: Create Release and Upload IPA
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.TAG }}
-          name: Patched IPA uploaded to catbox
+          name: ipa
           body: |
-            Uploaded patched IPA to catbox.moe with identifier:
-
-            ${{ steps.upload_catbox.outputs.filename }}
+            This release contains the patched IPA with injected tweak.
+          assets: ipa/patched.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
